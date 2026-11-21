@@ -59,6 +59,13 @@ def fidelity_table(real: pd.DataFrame, synth: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["feature", "HD", "KL", "KS"]).set_index("feature")
 
 
+def informative_columns(real: pd.DataFrame, cv_min: float = config.CV_MIN, target: str = config.TARGET):
+    """Columns whose coefficient of variation is at least `cv_min` (plus the target)."""
+    sd, mu = real.std(ddof=0), real.mean().abs()
+    cv = (sd / mu.where(mu > 0, np.nan)).fillna(0.0)
+    return [c for c in real.columns if c == target or cv[c] >= cv_min]
+
+
 # --------------------------------------------------------------------------- geometry
 def standardise(real: pd.DataFrame, *others):
     """z-score every table with the mean/std of the empirical dataset."""

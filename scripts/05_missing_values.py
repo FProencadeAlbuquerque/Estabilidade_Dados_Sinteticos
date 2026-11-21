@@ -13,15 +13,16 @@ from sdlm import data, imputation, metrics, plotting
 
 if __name__ == "__main__":
     p = parser(__doc__)
-    p.add_argument("--features", nargs="+", default=["V9", "P1"])
+    p.add_argument("--features", nargs="+", default=None)
     p.add_argument("--model", default="ctgan")
     args = p.parse_args()
     out = config.out_dir(args.dataset)
+    features = args.features or config.FEATURES[args.dataset]["missing"]
     real = data.load(args.dataset)
     synth = data.load_synthetic(args.dataset, args.model)
 
     rows = []
-    for feat in args.features:
+    for feat in features:
         x, completed = real[feat].values, {}
         for rate in config.MISSING_RATES:
             rng = np.random.default_rng(config.SEED)

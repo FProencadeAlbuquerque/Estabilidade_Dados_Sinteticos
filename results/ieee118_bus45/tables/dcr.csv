@@ -1,0 +1,5 @@
+dataset,mean,p5,min,exact_copies
+real-to-real (baseline),2.0501,1.4233,0.9063,
+ctgan,11.0640,9.7745,5.4852,0.0000
+tvae,10.3854,8.6257,4.6668,0.0000
+copula,2.0522,1.4444,0.7927,0.0000

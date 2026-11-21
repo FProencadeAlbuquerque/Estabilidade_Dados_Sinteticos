@@ -18,6 +18,23 @@ DATASETS = {
     "ieee118_bus45": DATA / "ieee118" / "LPM_Bus45_118.csv",
 }
 
+# A variable is "informative" when its coefficient of variation (std / |mean|) is at
+# least CV_MIN. Voltage magnitudes held at their set-points vary by less than 0.1 % of
+# the nominal value (below PMU magnitude accuracy); z-scoring such channels amplifies
+# numerical noise, so the *_informative tables leave them out (the target is kept).
+CV_MIN = 1e-3
+
+# Features shown in the missing-value figures and in the KDE comparison, per dataset.
+# IEEE 14: those of the paper. IEEE 118: a PMU angle and the loads next to the target
+# bus, and the load margin (the PMU voltage magnitudes are quasi-constant, see CV_MIN).
+_F14 = dict(missing=["V9", "P1"], kde=["V9", "Theta2", "Q4", "LoadMargin"])
+FEATURES = {
+    "ieee14": _F14,
+    "ieee14_contingency": _F14,
+    "ieee118_bus17": dict(missing=["Theta18", "Q17"], kde=["Theta18", "P17", "Q17", "LoadMargin"]),
+    "ieee118_bus45": dict(missing=["Theta56", "Q45"], kde=["Theta56", "P45", "Q45", "LoadMargin"]),
+}
+
 # CTGAN training configuration (paper, Appendix A). Values not listed here are the
 # library defaults, which coincide with the remaining rows of the table:
 # Adam(lr=2e-4, betas=(0.5, 0.9), weight_decay=1e-6), gradient penalty = 10.

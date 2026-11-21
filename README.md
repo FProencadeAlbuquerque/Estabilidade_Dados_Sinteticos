@@ -10,8 +10,8 @@ de margem de carga (estabilidade de tensão) com CTGAN, comparado a TVAE e cópu
 data/
   ieee14/Bus14.csv              base do artigo: 10.000 pontos, 20 medições + LoadMargin (barra 14)
   ieee14/Bus14Contingency.csv   IEEE 14 barras com contingências (ainda não usada)
-  ieee118/LPM_Bus17_118.csv     IEEE 118 barras, barra-alvo 17 (53 medições; ainda não usada)
-  ieee118/LPM_Bus45_118.csv     IEEE 118 barras, barra-alvo 45 (43 medições; ainda não usada)
+  ieee118/LPM_Bus17_118.csv     IEEE 118 barras, barra-alvo 17 (53 medições)
+  ieee118/LPM_Bus45_118.csv     IEEE 118 barras, barra-alvo 45 (43 medições)
 src/sdlm/                       biblioteca: geradores, métricas, imputação, figuras
 scripts/                        um script por etapa do artigo (01 a 07)
 paper/reference_ieee14.json     valores reportados no manuscrito submetido
@@ -37,6 +37,7 @@ Ou etapa por etapa (todos aceitam `--dataset` e `--models`):
 | `05_missing_values.py` | 4.1 (Figs. 3 e 4) | `figures/KDE_*_missing.pdf`, `tables/missing_values.csv` |
 | `06_figures.py` | Figs. 5 a 8 | `figures/*.pdf` |
 | `07_report.py` | — | `REPRODUCTION.md` (artigo × reprodução) |
+| `08_cross_system.py` | escalabilidade | `results/cross_system.{csv,tex}` (14 × 118 barras) |
 
 ## Protocolo experimental
 
@@ -55,6 +56,31 @@ Ou etapa por etapa (todos aceitam `--dataset` e `--models`):
 - **Dados faltantes**: máscara MCAR em 5/10/20/30 % das amostras da variável; média local
   com os vizinhos disponíveis mais próximos de cada lado; no CTGAN, cada entrada faltante
   recebe o valor da mesma variável em um registro sintético, e as observadas são mantidas.
+
+## Variáveis informativas e sistema de 118 barras
+
+No IEEE 118 barras, as magnitudes de tensão nas barras com PMU ficam presas aos valores de
+referência (desvio-padrão entre 1e-6 e 1,5e-4 p.u.). Padronizadas, essas colunas dominam o
+MDNN e o DCR. Por isso `02_fidelity.py` e `04_privacy.py` gravam cada tabela duas vezes: com
+todas as variáveis e só com as informativas (`*_informative.csv`), isto é, com coeficiente de
+variação ≥ `config.CV_MIN` = 1e-3. No IEEE 14 barras isso remove apenas V2 e V6 (constantes).
+
+```bash
+./run_all.sh ieee118_bus45     # ~2,5 h (CTGAN)
+./run_all.sh ieee118_bus17     # ~3,5 h (CTGAN)
+python scripts/08_cross_system.py
+```
+
+Resumo (variáveis informativas; NRMSE do TSTR em % da faixa da margem de carga):
+
+| Base | Gerador | HD médio | MDNN (base real) | NRMSE | DCR mín. (base real) |
+|---|---|---|---|---|---|
+| IEEE 14, barra 14 | CTGAN | 0,100 | 2,44 (2,24) | 3,7 | 0,99 (1,08) |
+| | cópula | 0,023 | 2,24 | 1,9 | 0,92 |
+| IEEE 118, barra 45 | CTGAN | 0,112 | 2,44 (1,93) | 6,2 | 1,36 (0,85) |
+| | cópula | 0,018 | 1,93 | 0,4 | 0,77 |
+| IEEE 118, barra 17 | CTGAN | 0,158 | 5,11 (3,57) | 11,2 | 3,04 (2,21) |
+| | cópula | 0,049 | 3,74 | 1,2 | 2,00 |
 
 ## Resultados
 

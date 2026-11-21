@@ -1,0 +1,4 @@
+model,real_to_synth,synth_to_real,MDNN,real_to_real_loo
+ctgan,10.9147,12.9536,11.9341,3.7382
+tvae,6.1356,7.8611,6.9983,3.7382
+copula,4.0783,4.0291,4.0537,3.7382
