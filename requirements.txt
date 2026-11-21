@@ -1,0 +1,10 @@
+# versions used to produce results/
+sdv==2.2.0
+ctgan==0.13.0
+torch==2.15.0
+scikit-learn==1.9.1
+scipy==1.18.1
+pandas==2.3.3
+numpy==2.5.3
+matplotlib==3.11.2
+umap-learn==0.6.0
