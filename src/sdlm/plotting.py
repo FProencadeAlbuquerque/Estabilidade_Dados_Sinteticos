@@ -120,3 +120,19 @@ def umap_projection(real, synth, path, n=3000, seed=config.SEED, model_label="CT
                for c, lab in ((C_REAL, "Empirical"), (C_SYN, f"Synthetic ({model_label})"))]
     ax.legend(handles=handles, frameon=True)
     _save(fig, path)
+
+
+def rho_distribution(rhos: dict, taus, path):
+    """Empirical CDF of the physical inconsistency score of each generator (log axis)."""
+    fig, ax = plt.subplots(figsize=(6.5, 4))
+    for (m, rho), c, ls in zip(rhos.items(), (C_SYN, C_ALT, C_REAL), ("-", "--", "-.")):
+        r = np.sort(np.asarray(rho)[np.isfinite(rho)])
+        ax.plot(r, np.arange(1, len(r) + 1) / len(rho), color=c, ls=ls, lw=2, label=config.MODEL_LABELS[m])
+    for t in taus:
+        ax.axvline(t, color="0.5", lw=0.8, ls=":")
+    ax.set_xscale("log")
+    ax.set_xlabel(r"Physical inconsistency score $\rho$")
+    ax.set_ylabel("Fraction of synthetic records")
+    ax.set_ylim(0, 1.02)
+    ax.legend(frameon=True)
+    _save(fig, path)

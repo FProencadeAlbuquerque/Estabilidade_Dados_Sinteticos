@@ -38,6 +38,7 @@ Ou etapa por etapa (todos aceitam `--dataset` e `--models`):
 | `06_figures.py` | Figs. 5 a 8 | `figures/*.pdf` |
 | `07_report.py` | — | `REPRODUCTION.md` (artigo × reprodução) |
 | `08_cross_system.py` | escalabilidade | `results/cross_system.{csv,tex}` (14 × 118 barras) |
+| `09_physical_consistency.py` | validade física | `tables/physical_*.csv`, `figures/physical_rho.pdf` |
 
 ## Protocolo experimental
 
@@ -81,6 +82,29 @@ Resumo (variáveis informativas; NRMSE do TSTR em % da faixa da margem de carga)
 | | cópula | 0,018 | 1,93 | 0,4 | 0,77 |
 | IEEE 118, barra 17 | CTGAN | 0,158 | 5,11 (3,57) | 11,2 | 3,04 (2,21) |
 | | cópula | 0,049 | 3,74 | 1,2 | 2,00 |
+
+## Validade física (fluxo de potência)
+
+Cada registro das bases é um ponto de operação resolvido: as injeções (cargas e potência ativa
+dos geradores) são as variáveis independentes, e os fasores das PMUs, a potência da barra de
+referência e o reativo dos geradores dependem delas pela rede. Para cada registro sintético,
+`09_physical_consistency.py` resolve o fluxo de potência (pandapower, `case14`/`case118`) com as
+injeções geradas e compara com as variáveis dependentes propostas pelo gerador:
+
+    rho = sqrt( média_j ((y_j - FP_j(u) - b_j) / sigma_j)^2 )
+
+`sigma_j` é o desvio-padrão real da variável e `b_j` o desvio médio do modelo de rede nos dados
+reais. Nos dados reais rho ≤ 0,012; rho = 1 equivale a um ponto de operação escolhido ao acaso.
+Registros com rho > tau (ou sem convergência) são rejeitados. O script também avalia a
+"projeção": substituir as variáveis dependentes pela solução do fluxo.
+
+| Base | Gerador | rho mediano | aceitos (tau = 0,5) | aceitos (tau = 1) |
+|---|---|---|---|---|
+| IEEE 14 | CTGAN / TVAE / cópula | 0,46 / 0,53 / 0,05 | 59 % / 45 % / 100 % | 96 % / 88 % / 100 % |
+| IEEE 118, barra 45 | CTGAN / TVAE / cópula | 0,42 / 0,52 / 0,01 | 67 % / 46 % / 100 % | 98 % / 91 % / 100 % |
+| IEEE 118, barra 17 | CTGAN / TVAE / cópula | 1,04 / 0,63 / 0,21 | 1 % / 29 % / 90 % | 46 % / 84 % / 100 % |
+
+A margem de carga ainda não entra na verificação (depende da definição usada no CPF).
 
 ## Resultados
 
