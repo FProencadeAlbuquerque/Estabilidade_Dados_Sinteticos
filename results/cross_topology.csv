@@ -1,0 +1,12 @@
+training_data,n,NRMSE_pct,NMAE_pct,accepted_by_N1_check_pct
+intact topology: real,8000,50.618,49.239,0.000
+intact topology: ctgan,10000,63.227,61.713,0.050
+intact topology: tvae,10000,64.441,62.379,0.050
+intact topology: copula,10000,50.222,47.730,0.000
+N-1 topology: real,8000,0.629,0.319,100.000
+N-1 topology: ctgan,10000,4.492,3.092,
+"N-1 topology: ctgan, accepted",8575,3.440,2.418,
+N-1 topology: tvae,10000,4.526,3.129,
+"N-1 topology: tvae, accepted",7941,2.849,1.997,
+N-1 topology: copula,10000,1.361,0.886,
+"N-1 topology: copula, accepted",579,7.020,6.052,

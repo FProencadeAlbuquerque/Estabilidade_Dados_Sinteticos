@@ -13,7 +13,7 @@ N_SYNTH = 10_000         # synthetic samples drawn from each generator
 # name -> csv file. "ieee14" is the dataset used in the paper.
 DATASETS = {
     "ieee14": DATA / "ieee14" / "Bus14.csv",
-    "ieee14_contingency": DATA / "ieee14" / "Bus14Contingency.csv",
+    "ieee14_n1": DATA / "ieee14" / "Bus14_N1_line2-3.csv",     # scripts/00_generate_ieee14.py
     "ieee118_bus17": DATA / "ieee118" / "LPM_Bus17_118.csv",
     "ieee118_bus45": DATA / "ieee118" / "LPM_Bus45_118.csv",
 }
@@ -30,7 +30,7 @@ CV_MIN = 1e-3
 _F14 = dict(missing=["V9", "P1"], kde=["V9", "Theta2", "Q4", "LoadMargin"])
 FEATURES = {
     "ieee14": _F14,
-    "ieee14_contingency": _F14,
+    "ieee14_n1": _F14,
     "ieee118_bus17": dict(missing=["Theta18", "Q17"], kde=["Theta18", "P17", "Q17", "LoadMargin"]),
     "ieee118_bus45": dict(missing=["Theta56", "Q45"], kde=["Theta56", "P45", "Q45", "LoadMargin"]),
 }

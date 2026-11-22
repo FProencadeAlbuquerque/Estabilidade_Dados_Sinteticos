@@ -29,7 +29,7 @@ TAU = 1.0
 # network, target bus, columns that are generator active powers / reactive outputs
 SYSTEMS = {
     "ieee14": dict(case="case14", target=14, gen_p=(), gen_q=(), slack_p="P1"),
-    "ieee14_contingency": dict(case="case14", target=14, gen_p=(), gen_q=(), slack_p="P1"),
+    "ieee14_n1": dict(case="case14", target=14, gen_p=(), gen_q=(), slack_p="P1", outage=((2, 3),)),
     "ieee118_bus17": dict(case="case118", target=17, gen_p=(46, 49), gen_q=(49,), slack_p=None),
     "ieee118_bus45": dict(case="case118", target=45, gen_p=(46, 49), gen_q=(49,), slack_p=None),
 }
@@ -62,7 +62,7 @@ class PowerFlow:
 
     def __init__(self, dataset: str, columns):
         self.s = SYSTEMS[dataset]
-        self.net = Network(self.s["case"])
+        self.net = Network(self.s["case"], self.s.get("outage", ()))
         self.indep, self.dep = split_columns(dataset, columns)
         self.target = self.net.ext[self.s["target"]]
 

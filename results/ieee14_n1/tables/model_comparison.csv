@@ -1,0 +1,4 @@
+model,mean_HD,max_HD,mean_KL,mean_KS,max_KS,MDNN
+ctgan,0.1723,1.0000,inf,0.1320,0.7853,2.4881
+tvae,0.2000,1.0000,inf,0.1355,0.6871,2.3111
+copula,0.1615,1.0000,inf,0.1092,0.9999,4.2892

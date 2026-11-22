@@ -15,7 +15,7 @@ from _common import config, parser
 
 from sdlm import data, metrics
 
-LABELS = {"ieee14": "IEEE 14 (bus 14)", "ieee14_contingency": "IEEE 14, contingencies (bus 14)",
+LABELS = {"ieee14": "IEEE 14 (bus 14)", "ieee14_n1": "IEEE 14, line 2-3 out (bus 14)",
           "ieee118_bus17": "IEEE 118 (bus 17)", "ieee118_bus45": "IEEE 118 (bus 45)"}
 
 if __name__ == "__main__":

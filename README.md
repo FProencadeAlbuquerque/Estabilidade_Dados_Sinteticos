@@ -9,7 +9,8 @@ de margem de carga (estabilidade de tensão) com CTGAN, comparado a TVAE e cópu
 ```
 data/
   ieee14/Bus14.csv              base do artigo: 10.000 pontos, 20 medições + LoadMargin (barra 14)
-  ieee14/Bus14Contingency.csv   IEEE 14 barras com contingências (ainda não usada)
+  ieee14/Bus14_N1_line2-3.csv   IEEE 14 barras com a linha 2-3 fora (gerada por scripts/00_generate_ieee14.py)
+  ieee14/raw/Bus14Contingency_original.csv   base de contingência original (inconsistente; não usada)
   ieee118/LPM_Bus17_118.csv     IEEE 118 barras, barra-alvo 17 (53 medições)
   ieee118/LPM_Bus45_118.csv     IEEE 118 barras, barra-alvo 45 (43 medições)
 src/sdlm/                       biblioteca: geradores, métricas, imputação, figuras
@@ -38,6 +39,8 @@ Ou etapa por etapa (todos aceitam `--dataset` e `--models`):
 | `06_figures.py` | Figs. 5 a 8 | `figures/*.pdf` |
 | `07_report.py` | — | `REPRODUCTION.md` (artigo × reprodução) |
 | `08_cross_system.py` | escalabilidade | `results/cross_system.{csv,tex}` (14 × 118 barras) |
+| `00_generate_ieee14.py` | geração das bases | reprodução em Python do script MATLAB (`--outage 2 3`, `--check`) |
+| `10_cross_topology.py` | robustez à topologia | `results/cross_topology.csv` |
 | `09_physical_consistency.py` | validade física | `tables/physical_*.csv`, `figures/physical_rho.pdf` |
 
 ## Protocolo experimental
@@ -113,6 +116,30 @@ injeções geradas + solução da rede para as demais variáveis.
 | IEEE 118, barra 17 | CTGAN | 39,4 | 11,2 | 6,7 | 1,5 |
 | | TVAE | 66,5 | 9,2 | 6,1 | 1,4 |
 | | cópula | 99,9 | 1,2 | 1,2 | 0,8 |
+
+## Mudança de topologia (contingência N-1)
+
+A base `raw/Bus14Contingency_original.csv` não é usada porque tem três blocos inconsistentes:
+linhas 0-999 com topologia alterada, mas `LoadMargin` desalinhada das injeções (correlação com
+P14 de -0,05); linhas 1000-2999 na topologia intacta; linhas 3000-9999 com os fasores das PMUs
+iguais a 1 (valor de inicialização do script) e P1 igual ao valor sorteado. Além disso, o CPF do
+script usa `loadcase('case14')`, ou seja, a rede intacta, mesmo quando o fluxo é feito na
+contingência.
+
+`Bus14_N1_line2-3.csv` foi gerada com `00_generate_ieee14.py --outage 2 3`, que reproduz o
+sorteio do script MATLAB e faz fluxo e CPF na rede em contingência (com `--check`, a versão
+intacta reproduz as estatísticas de `Bus14.csv`).
+
+```bash
+./run_all.sh ieee14_n1
+python scripts/09_physical_consistency.py --dataset ieee14_n1
+python scripts/10_cross_topology.py
+```
+
+| Dados de treino | NRMSE no teste N-1 (%) | aceitos pela verificação física N-1 (%) |
+|---|---|---|
+| topologia intacta: real / CTGAN / TVAE / cópula | 50,6 / 63,2 / 64,4 / 50,2 | 0 / 0,05 / 0,05 / 0 |
+| topologia N-1: real / CTGAN / TVAE / cópula | 0,6 / 4,5 / 4,5 / 1,4 | 100 / 85,8 / 79,4 / 5,8 |
 
 ## Resultados
 

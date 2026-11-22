@@ -19,12 +19,19 @@ GROWTH = 0.8          # target case = 1.8 x base case
 
 
 class Network:
-    def __init__(self, case: str):
+    def __init__(self, case: str, outage=()):
+        """`outage`: branches (from_bus, to_bus), external numbering, taken out of service."""
         from pypower import case14, case118
         from pypower.ext2int import ext2int
         from pypower.makeYbus import makeYbus
 
-        ppc = ext2int({"case14": case14.case14, "case118": case118.case118}[case]())
+        mpc = {"case14": case14.case14, "case118": case118.case118}[case]()
+        keep = [k for k, b in enumerate(mpc["branch"])
+                if (int(b[0]), int(b[1])) not in {tuple(o) for o in outage}]
+        if len(keep) != len(mpc["branch"]) - len(outage):
+            raise ValueError(f"branch not found in {case}: {outage}")
+        mpc["branch"] = mpc["branch"][keep]
+        ppc = ext2int(mpc)
         self.baseMVA, bus, gen = ppc["baseMVA"], ppc["bus"], ppc["gen"]
         self.n = bus.shape[0]
         self.Y = np.asarray(makeYbus(self.baseMVA, bus, ppc["branch"])[0].todense())
@@ -32,8 +39,7 @@ class Network:
         on = gen[:, GEN_STATUS] > 0
         self.gbus = gen[on, GEN_BUS].astype(int)
         self.pg0 = gen[on, PG].copy()
-        self.ext = {int(b): i for i, b in enumerate(ppc["order"]["bus"]["e2i"].nonzero()[0])} \
-            if False else {int(e): int(i) for i, e in enumerate(ppc["order"]["bus"]["i2e"])}
+        self.ext = {int(e): int(i) for i, e in enumerate(ppc["order"]["bus"]["i2e"])}
         self.gidx = {}
         for k, b in enumerate(self.gbus):
             self.gidx.setdefault(int(b), k)
