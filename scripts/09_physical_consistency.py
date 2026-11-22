@@ -1,14 +1,17 @@
-"""Step 9 - physical validity of the synthetic records (power-flow consistency).
+"""Step 9 - physical validity of the synthetic records.
 
-For every synthetic record the AC power flow is solved for its injections and compared
-with the dependent variables proposed by the generator (see `sdlm/physics.py`). The
-score rho is calibrated on real records, for which it is practically zero. Records with
-rho above a threshold tau (or whose power flow diverges) are rejected.
+For every synthetic record the AC power flow and the nose point are computed for its
+injections and compared with the states and the load margin proposed by the generator
+(see `sdlm/physics.py`). Records with rho > tau (default 1), or whose power flow does
+not converge, are rejected.
 
 Outputs (results/<dataset>/):
-    tables/physical_rho.csv            rho of every synthetic record, one column per model
-    tables/physical_consistency.csv    convergence, rho quantiles, acceptance rate per tau
-    tables/physical_tstr.csv           TSTR of: all records, accepted records, projected records
+    tables/physical_rho_<model>.csv    rho_state, rho_lm, rho of every synthetic record
+    tables/physical_consistency.csv    convergence, rho quantiles, acceptance rates
+    tables/physical_filter.csv         TSTR, fidelity and DCR of: all records, accepted
+                                       records and physics-projected records
+    synthetic/<model>_accepted.csv     records that pass the filter
+    synthetic/<model>_projected.csv    generated injections + network solution
     figures/physical_rho.pdf           distribution of rho per generator
 """
 import numpy as np
@@ -18,57 +21,74 @@ from _common import config, parser
 
 from sdlm import data, metrics, physics, plotting
 
-TAUS = (0.25, 0.5, 1.0)
+
+def evaluate(name, table, real, test, info):
+    fid = metrics.fidelity_table(real[info], table[info])
+    d = metrics.dcr(real[info], table[info])
+    t = metrics.tstr(table, test)
+    return {"training_data": name, "n": len(table), "NRMSE_pct": t["NRMSE_pct"], "NMAE_pct": t["NMAE_pct"],
+            "mean_HD": fid.HD.mean(), "max_HD": fid.HD.max(), "DCR_p5": d["p5"], "DCR_min": d["min"]}
+
 
 if __name__ == "__main__":
     p = parser(__doc__)
-    p.add_argument("--n-real", type=int, default=2000, help="real records used for calibration")
+    p.add_argument("--tau", type=float, default=physics.TAU)
+    p.add_argument("--n-real", type=int, default=2000, help="real records used to validate the network model")
     p.add_argument("--jobs", type=int, default=2)
     args = p.parse_args()
     out = config.out_dir(args.dataset)
+    tab = out / "tables"
     real = data.load(args.dataset)
     train, test = data.split(real)
+    info = metrics.informative_columns(real)
 
-    cal_set = test.head(args.n_real)
-    pf_real = physics.solve_table(args.dataset, cal_set, args.jobs)
-    cal = physics.calibrate(real, cal_set, pf_real)
-    rho_real = physics.inconsistency(cal_set, pf_real, cal)
-    quasi = [c for c in pf_real.columns if c not in cal["dep"]]
-    print(f"dependent variables scored: {cal['dep']}")
-    print(f"real records: rho median {rho_real.median():.4f}, max {rho_real.max():.4f}")
+    chk = test.head(args.n_real)
+    pf_real = physics.solve_table(args.dataset, chk, args.jobs)
+    cal = physics.calibrate(real, pf_real.columns)
+    r_real = physics.inconsistency(chk, pf_real, cal)
+    quasi = [c for c in pf_real.columns if c not in cal["states"] and c != config.TARGET]
+    print(f"states scored: {cal['states']}")
+    print(f"real records: rho_state max {r_real.rho_state.max():.4f}, rho_lm max {r_real.rho_lm.max():.4f}")
 
-    summary = [{"data": "real", "converged_pct": 100 * np.isfinite(rho_real).mean(),
-                "rho_median": rho_real.median(), "rho_p90": rho_real.quantile(0.9), "rho_max": rho_real.max(),
-                **{f"accepted_pct_tau{t}": 100 * (rho_real <= t).mean() for t in TAUS}}]
-    tstr = [{"training_data": "real (TRTR)", "n": len(train), **metrics.tstr(train, test)}]
-    rhos = {"real": rho_real.reset_index(drop=True)}
+    def stats(name, r):
+        fin = r[np.isfinite(r.rho)]
+        return {"data": name, "converged_pct": 100 * np.isfinite(r.rho).mean(),
+                "rho_state_median": fin.rho_state.median(), "rho_state_p90": fin.rho_state.quantile(0.9),
+                "rho_lm_median": fin.rho_lm.median(), "rho_lm_p90": fin.rho_lm.quantile(0.9),
+                "accepted_state_pct": 100 * (r.rho_state <= args.tau).mean(),
+                "accepted_lm_pct": 100 * (r.rho_lm <= args.tau).mean(),
+                "accepted_pct": 100 * (r.rho <= args.tau).mean()}
+
+    summary = [stats("real", r_real)]
+    rows = [{"training_data": "real (TRTR)", "n": len(train), **{k: v for k, v in metrics.tstr(train, test).items()
+                                                               if k in ("NRMSE_pct", "NMAE_pct")},
+             "DCR_p5": metrics.dcr_baseline(real[info])["p5"], "DCR_min": metrics.dcr_baseline(real[info])["min"]}]
+    rhos = {}
     for model in args.models:
         synth = data.load_synthetic(args.dataset, model)
         pf = physics.solve_table(args.dataset, synth, args.jobs)
-        rho = physics.inconsistency(synth, pf, cal)
-        rhos[model] = rho
-        fin = rho[np.isfinite(rho)]
-        row = {"data": model, "converged_pct": 100 * np.isfinite(rho).mean(), "rho_median": fin.median(),
-               "rho_p90": fin.quantile(0.9), "rho_max": fin.max(),
-               **{f"accepted_pct_tau{t}": 100 * (rho <= t).mean() for t in TAUS}}
+        r = physics.inconsistency(synth, pf, cal)
+        r.to_csv(tab / f"physical_rho_{model}.csv", index=False, float_format="%.5f")
+        rhos[model] = r.rho
+        row = stats(model, r)
         if quasi:      # set-point-bound voltages: absolute error in p.u.
-            row["quasi_const_max_abs_err"] = (synth[quasi] - pf[quasi] - cal["bias"][quasi]).abs().max().max()
+            row["quasi_const_max_abs_err"] = (synth[quasi] - pf[quasi]).abs().max().max()
         summary.append(row)
-        tstr.append({"training_data": f"{model}: all records", "n": len(synth), **metrics.tstr(synth, test)})
-        for t in TAUS:
-            acc = synth[rho <= t]
-            if len(acc) >= 200:
-                tstr.append({"training_data": f"{model}: rho <= {t}", "n": len(acc), **metrics.tstr(acc, test)})
-        proj = physics.project(synth, pf, cal)
-        tstr.append({"training_data": f"{model}: projected", "n": len(proj), **metrics.tstr(proj, test)})
+        accepted = synth[r.rho <= args.tau]
+        projected = physics.project(synth, pf)
+        accepted.to_csv(out / "synthetic" / f"{model}_accepted.csv", index=False)
+        projected.to_csv(out / "synthetic" / f"{model}_projected.csv", index=False)
+        rows.append(evaluate(f"{model}: all records", synth, real, test, info))
+        if len(accepted) >= 200:
+            rows.append(evaluate(f"{model}: accepted (rho <= {args.tau:g})", accepted, real, test, info))
+        rows.append(evaluate(f"{model}: projected", projected, real, test, info))
         print(f"[{args.dataset}] {model} done", flush=True)
 
-    tab = out / "tables"
-    pd.DataFrame(rhos).to_csv(tab / "physical_rho.csv", index=False, float_format="%.5f")
     summary = pd.DataFrame(summary)
     summary.to_csv(tab / "physical_consistency.csv", index=False, float_format="%.4f")
-    tstr = pd.DataFrame(tstr).drop(columns=["target_range"])
-    tstr.to_csv(tab / "physical_tstr.csv", index=False, float_format="%.4f")
-    plotting.rho_distribution({m: rhos[m] for m in args.models}, TAUS, out / "figures" / "physical_rho.pdf")
+    res = pd.DataFrame(rows)
+    res.to_csv(tab / "physical_filter.csv", index=False, float_format="%.4f")
+    plotting.rho_distribution(rhos, (args.tau,), out / "figures" / "physical_rho.pdf")
+    pd.set_option("display.width", 250)
     print(summary.round(3).to_string(index=False))
-    print(tstr.round(3).to_string(index=False))
+    print(res.round(3).to_string(index=False))

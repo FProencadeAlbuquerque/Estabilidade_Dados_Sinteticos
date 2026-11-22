@@ -83,28 +83,36 @@ Resumo (variáveis informativas; NRMSE do TSTR em % da faixa da margem de carga)
 | IEEE 118, barra 17 | CTGAN | 0,158 | 5,11 (3,57) | 11,2 | 3,04 (2,21) |
 | | cópula | 0,049 | 3,74 | 1,2 | 2,00 |
 
-## Validade física (fluxo de potência)
+## Validade física (fluxo de potência e ponto de máximo carregamento)
 
 Cada registro das bases é um ponto de operação resolvido: as injeções (cargas e potência ativa
-dos geradores) são as variáveis independentes, e os fasores das PMUs, a potência da barra de
-referência e o reativo dos geradores dependem delas pela rede. Para cada registro sintético,
-`09_physical_consistency.py` resolve o fluxo de potência (pandapower, `case14`/`case118`) com as
-injeções geradas e compara com as variáveis dependentes propostas pelo gerador:
+dos geradores) são as variáveis independentes; os fasores das PMUs, a potência da barra de
+referência, o reativo dos geradores e a margem de carga são funções delas pela rede.
+`src/sdlm/network.py` reproduz em Python os scripts MATLAB/MATPOWER que geraram as bases
+(`case14`/`case118` do PYPOWER; CPF com cargas e geração crescendo proporcionalmente até o
+nariz, sem limites de reativo; `LoadMargin = 0,8·λmax·P_barra`). Nos dados reais, os estados e
+a margem são reproduzidos com erro relativo abaixo de 0,1 %.
 
-    rho = sqrt( média_j ((y_j - FP_j(u) - b_j) / sigma_j)^2 )
+Para cada registro sintético, `09_physical_consistency.py` calcula
 
-`sigma_j` é o desvio-padrão real da variável e `b_j` o desvio médio do modelo de rede nos dados
-reais. Nos dados reais rho ≤ 0,012; rho = 1 equivale a um ponto de operação escolhido ao acaso.
-Registros com rho > tau (ou sem convergência) são rejeitados. O script também avalia a
-"projeção": substituir as variáveis dependentes pela solução do fluxo.
+    rho_state = sqrt( média_j ((y_j - FP_j(u)) / sigma_j)^2 )     estados informativos
+    rho_lm    = |LM - LM_CPF(u)| / sigma_LM
+    rho       = max(rho_state, rho_lm)
 
-| Base | Gerador | rho mediano | aceitos (tau = 0,5) | aceitos (tau = 1) |
-|---|---|---|---|---|
-| IEEE 14 | CTGAN / TVAE / cópula | 0,46 / 0,53 / 0,05 | 59 % / 45 % / 100 % | 96 % / 88 % / 100 % |
-| IEEE 118, barra 45 | CTGAN / TVAE / cópula | 0,42 / 0,52 / 0,01 | 67 % / 46 % / 100 % | 98 % / 91 % / 100 % |
-| IEEE 118, barra 17 | CTGAN / TVAE / cópula | 1,04 / 0,63 / 0,21 | 1 % / 29 % / 90 % | 46 % / 84 % / 100 % |
+e rejeita os registros com rho > tau = 1 (ou sem convergência). Também grava a "projeção":
+injeções geradas + solução da rede para as demais variáveis.
 
-A margem de carga ainda não entra na verificação (depende da definição usada no CPF).
+| Base | Gerador | aceitos (%) | NRMSE todos | NRMSE aceitos | NRMSE projetados |
+|---|---|---|---|---|---|
+| IEEE 14 | CTGAN | 90,4 | 3,7 | 3,1 | 1,0 |
+| | TVAE | 82,5 | 4,1 | 3,2 | 1,2 |
+| | cópula | 100,0 | 1,9 | 1,9 | 0,7 |
+| IEEE 118, barra 45 | CTGAN | 91,9 | 6,2 | 4,8 | 0,6 |
+| | TVAE | 80,3 | 5,6 | 3,3 | 0,4 |
+| | cópula | 100,0 | 0,4 | 0,4 | 0,3 |
+| IEEE 118, barra 17 | CTGAN | 39,4 | 11,2 | 6,7 | 1,5 |
+| | TVAE | 66,5 | 9,2 | 6,1 | 1,4 |
+| | cópula | 99,9 | 1,2 | 1,2 | 0,8 |
 
 ## Resultados
 
